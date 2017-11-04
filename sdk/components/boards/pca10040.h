@@ -47,21 +47,25 @@ extern "C" {
 #include "nrf_gpio.h"
 
 // LEDs definitions for PCA10040
-#define LEDS_NUMBER    2
+#define LEDS_NUMBER    4
 
 #define LED_START      17
 #define LED_1          17
-#define LED_2          19
-#define LED_STOP       19
+#define LED_2          18
+#define LED_3          19
+#define LED_4          20
+#define LED_STOP       20
 
-#define LEDS_ACTIVE_STATE 1
+#define LEDS_ACTIVE_STATE 0
 
 #define LEDS_INV_MASK  LEDS_MASK
 
-#define LEDS_LIST { LED_1, LED_2}
+#define LEDS_LIST { LED_1, LED_2, LED_3, LED_4 }
 
 #define BSP_LED_0      LED_1
 #define BSP_LED_1      LED_2
+#define BSP_LED_2      LED_3
+#define BSP_LED_3      LED_4
 
 #define BUTTONS_NUMBER 4
 
@@ -165,19 +169,11 @@ extern "C" {
 #define ARDUINO_A4_PIN              30    // Analog channel 4
 #define ARDUINO_A5_PIN              31    // Analog channel 5
 
-#if defined (S212)
 // Low frequency clock source to be used by the SoftDevice
-#define NRF_CLOCK_LFCLKSRC      {.source        = NRF_CLOCK_LF_SRC_XTAL,            \
-                                 .rc_ctiv       = 0,                                \
-                                 .rc_temp_ctiv  = 0,                                \
-                                 .xtal_accuracy = NRF_CLOCK_LF_XTAL_ACCURACY_20_PPM}
-#else
-
 #define NRF_CLOCK_LFCLKSRC      {.source       = NRF_CLOCK_LF_SRC_XTAL,      \
                                  .rc_ctiv      = 0,                          \
                                  .rc_temp_ctiv = 0,                          \
                                  .accuracy     = NRF_CLOCK_LF_ACCURACY_20_PPM}
-#endif
 
 #ifdef __cplusplus
 }
