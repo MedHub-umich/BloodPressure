@@ -35,6 +35,8 @@
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+ NRF_TWI_MNGR_WRITE(BP_ADDR, p_reg_addr, 1,        NRF_TWI_MNGR_NO_STOP), \
  * 
  */
 #ifndef BP_H
@@ -47,26 +49,23 @@
 extern "C" {
 #endif
 
-
 // 0x90 is the LM75B's address in the mbed Application Shield, it contains
 // R/W bit and "nrf_drv_twi" (and consequently "nrf_twi_mngr") requires slave
 // address without this bit, hence shifting.
-#define BP_ADDR          (0xA0U >> 1)
+#define BP_UPPER_ADDR          (0xA0U >> 1) //Register addresses over 100
 
-#define BP_REG_DATA      0x30
-
-
-extern uint8_t NRF_TWI_MNGR_BUFFER_LOC_IND bp_data_addr;
+#define BP_LOWER_ADDR          (0xA2U >> 1) //Register under 100
 
 
-#define BP_READ(p_reg_addr, p_buffer, byte_cnt) \
-    NRF_TWI_MNGR_WRITE(BP_ADDR, p_reg_addr, 1,        NRF_TWI_MNGR_NO_STOP), \
-    NRF_TWI_MNGR_READ (BP_ADDR, p_buffer,   byte_cnt, 0)
+typedef struct bpMonitor{
+	uint8_t diastolic;
+	uint8_t systolic;
+	uint8_t heartRate;
+	uint8_t currentMemLocation;
+	int findingIndex;
+	int findingBloodPressure;
+} bpMonitor;
 
-
-#define BP_INIT_TRANSFER_COUNT 1
-
-extern nrf_twi_mngr_transfer_t const bp_init_transfers[BP_INIT_TRANSFER_COUNT];
 
 #ifdef __cplusplus
 }

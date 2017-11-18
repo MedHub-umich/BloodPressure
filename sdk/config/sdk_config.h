@@ -134,6 +134,7 @@
 #endif
 // <o> TWI_DEFAULT_CONFIG_FREQUENCY  - Frequency
  
+// <16395475> 60k 
 // <26738688=> 100k 
 // <67108864=> 250k 
 // <104857600=> 400k 

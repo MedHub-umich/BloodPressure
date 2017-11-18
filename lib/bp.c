@@ -50,14 +50,13 @@
 
 
 #include "bp.h"
+#include "nrf_log.h"
+#include "nrf_log_ctrl.h"
+#include "nrf_log_default_backends.h"
 
-uint8_t NRF_TWI_MNGR_BUFFER_LOC_IND bp_data_addr = BP_REG_DATA;
 
 
-// Set default configuration of LM75B - write 0 to Conf register.
-static uint8_t NRF_TWI_MNGR_BUFFER_LOC_IND default_config[] = { BP_REG_DATA, 0 };
 
-nrf_twi_mngr_transfer_t const bp_init_transfers[BP_INIT_TRANSFER_COUNT] =
-{
-    NRF_TWI_MNGR_WRITE(BP_ADDR, default_config, sizeof(default_config), 0)
-};
+
+
+
