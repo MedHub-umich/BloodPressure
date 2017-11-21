@@ -61,15 +61,43 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+ // Interfaces
+#include "bleInterface.h"
+#include "sdInterface.h"
+#include "notification.h"
+#include "pendingMessages.h"
+#include "ble_rec.h"
+
+
 #define TWI_INSTANCE_ID             0
 
 #define MAX_PENDING_TRANSACTIONS    5
 
 NRF_TWI_MNGR_DEF(m_nrf_twi_mngr, MAX_PENDING_TRANSACTIONS, TWI_INSTANCE_ID);
+BLE_HRS_DEF(m_hrs);
+BLE_REC_DEF(m_rec);
 bpMonitor bpDevice;
 uint8_t memRegAddr[] = {98, 172, 186, 200, 214, 228, 242, 0, 14, 28, 42, 56, 70, 84};
 uint8_t MEM_INDEX_ADDR = 96;
 
+TaskHandle_t  bpHandle;
+static void bpTask(void * pvParameter);
+
+static TaskHandle_t m_logger_thread;                 /**< Definition of Logger thread. */
+static void logger_thread(void * arg)
+{
+    UNUSED_PARAMETER(arg);
+
+    while (1)
+    {
+        NRF_LOG_FLUSH();
+        vTaskSuspend(NULL); // Suspend myself
+    }
+}
+
+void vApplicationIdleHook( void ) {
+     vTaskResume(m_logger_thread);
+}
 
 // TWI (with transaction manager) initialization.
 static void twi_config(void)
@@ -100,7 +128,7 @@ void bloodPressureReadCB(ret_code_t result, void * p_user_data) {
         NRF_LOG_INFO("BP diastolic pressure %d", bpDevice.diastolic);
         NRF_LOG_INFO("BP systolic pressure %d", bpDevice.systolic);
         NRF_LOG_INFO("BP heart rate %d", bpDevice.heartRate);
-        NRF_LOG_FLUSH();
+        debugErrorMessage(sendData(&m_hrs, &bpDevice.diastolic, 3));
     }
 }
 
@@ -174,7 +202,6 @@ void indexCB(ret_code_t result, void * p_user_data) {
         bpDevice.currentMemLocation = memRegAddr[bpDevice.currentMemLocation];
         bpDevice.findingIndex = 0; //notify that we are done finding the index in memory of the current BP
         NRF_LOG_INFO("Got the index which is %d", bpDevice.currentMemLocation);
-        NRF_LOG_FLUSH();
         getMostRecentBPReading();
     }
 }
@@ -188,7 +215,6 @@ void getMemIndex() {
     //  will be referred after this function returns]
     int err_code;
     NRF_LOG_INFO("I am going to schedule a transactions");
-    NRF_LOG_FLUSH();
     static nrf_twi_mngr_transfer_t const transfers[] =
     {
         NRF_TWI_MNGR_WRITE(BP_UPPER_ADDR, &MEM_INDEX_ADDR, sizeof(MEM_INDEX_ADDR),  0),
@@ -208,40 +234,100 @@ void getMemIndex() {
         NRF_LOG_INFO("Error Code %d", err_code);
     }
 } 
+static void log_init(void)
+{
+    ret_code_t err_code = NRF_LOG_INIT(NULL);
+    APP_ERROR_CHECK(err_code);
+
+    #if NRF_LOG_ENABLED
+    // Start execution.
+    if (pdPASS != xTaskCreate(logger_thread, "LOGGER", 256, NULL, 1, &m_logger_thread))
+    {
+        APP_ERROR_HANDLER(NRF_ERROR_NO_MEM);
+    }
+    #endif
+
+    NRF_LOG_DEFAULT_BACKENDS_INIT();
+}
 
 
+/**@brief Function for initializing buttons and leds.
+ *
+ * @param[out] p_erase_bonds  Will be true if the clear bonding button was pressed 
+ * to wake the application up.
+ */
+static void buttons_leds_init(bool * p_erase_bonds)
+{
+    ret_code_t err_code;
+    bsp_event_t startup_event;
+
+    err_code = bsp_init(BSP_INIT_LED | BSP_INIT_BUTTONS, bsp_event_handler);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = bsp_btn_ble_init(NULL, &startup_event);
+    APP_ERROR_CHECK(err_code);
+
+    *p_erase_bonds = (startup_event == BSP_EVENT_CLEAR_BONDING_DATA);
+}
+
+static void checkReturn(BaseType_t retVal)
+{
+    if (retVal == pdPASS)
+    {
+        NRF_LOG_INFO("Checkpoint: created task");
+    }
+    else if (retVal == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY)
+    {
+        NRF_LOG_INFO("NEED MORE HEAP !!!!!!!!!!!!!!!!!!!!!!!!!");
+    }
+    else
+    {
+        NRF_LOG_INFO("DID NOT PASS XXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+    }
+}
+
+static void bpTask (void * pvParameter)
+{
+    UNUSED_PARAMETER(pvParameter);
+    while (true) {
+        getMemIndex();
+        vTaskDelay(3000);
+    }
+}
 
 /**
  * @brief Function for application main entry.
  */
-int main(void)
-{
+int main(void) {
+    log_init();
+    NRF_LOG_INFO("********** STARTING MAIN *****************");
+    NRF_LOG_FLUSH();
+    bool erase_bonds;
     /* Configure board. */
     bsp_board_leds_init();
+    bleInit(&m_hrs, &m_rec);
+    buttons_leds_init(&erase_bonds);
+    initNotification();
+    pendingMessagesCreate(&globalQ);
+    nrf_sdh_freertos_init(bleBegin, &erase_bonds);
+ 
 
     /* Configure TWI */
     twi_config();
+
+
+    checkReturn(xTaskCreate(bpTask, "x", configMINIMAL_STACK_SIZE+200, NULL, 3, &bpHandle));
     
-    ret_code_t err_code = NRF_LOG_INIT(NULL);
-    APP_ERROR_CHECK(err_code);
-    NRF_LOG_DEFAULT_BACKENDS_INIT();
+
     NRF_LOG_INFO("Starting BP Readings!");
-    if (NRF_LOG_PROCESS() == false) {}
+    NRF_LOG_FLUSH();
+    vTaskStartScheduler();
 
-    /* Toggle LEDs. */
-    while (true) {
 
-        bpDevice.findingIndex = 1;
-        getMemIndex();
-        // bpDevice.findingBloodPressure = 1;
-        // getMostRecentBPReading();
-        // while(bpDevice.findingBloodPressure) {}
-        // NRF_LOG_INFO("Current diastolic pressure %d", bpDevice.diastolic);
-        // NRF_LOG_FLUSH();
-        nrf_delay_ms(3000);
-        //read_bp_registers();
-    }
+   
 }
+
+
 
 /**
  *@}
