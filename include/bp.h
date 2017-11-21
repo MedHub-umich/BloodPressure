@@ -44,6 +44,7 @@
 
 
 #include "nrf_twi_mngr.h"
+#include "packager.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,6 +58,8 @@ extern "C" {
 #define BP_LOWER_ADDR          (0xA2U >> 1) //Register under 100
 
 
+
+
 typedef struct bpMonitor{
 	uint8_t diastolic;
 	uint8_t systolic;
@@ -64,7 +67,10 @@ typedef struct bpMonitor{
 	uint8_t currentMemLocation;
 	int findingIndex;
 	int findingBloodPressure;
+	Packager bpPackager;
 } bpMonitor;
+
+int initBP(bpMonitor* device);
 
 
 #ifdef __cplusplus

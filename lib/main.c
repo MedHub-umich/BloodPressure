@@ -52,7 +52,6 @@
 #include <stdint.h>
 #include "nrf_delay.h"
 #include "nrf_twi_mngr.h"
-#include "bp.h"
 
 #include "app_error.h"
 #include "boards.h"
@@ -67,6 +66,10 @@
 #include "notification.h"
 #include "pendingMessages.h"
 #include "ble_rec.h"
+#include "packager.h"
+#include "bp.h"
+
+
 
 
 #define TWI_INSTANCE_ID             0
@@ -76,12 +79,16 @@
 NRF_TWI_MNGR_DEF(m_nrf_twi_mngr, MAX_PENDING_TRANSACTIONS, TWI_INSTANCE_ID);
 BLE_HRS_DEF(m_hrs);
 BLE_REC_DEF(m_rec);
-bpMonitor bpDevice;
+static bpMonitor bpDevice;
 uint8_t memRegAddr[] = {98, 172, 186, 200, 214, 228, 242, 0, 14, 28, 42, 56, 70, 84};
 uint8_t MEM_INDEX_ADDR = 96;
 
 TaskHandle_t  bpHandle;
 static void bpTask(void * pvParameter);
+
+TaskHandle_t  bleHandle;
+static void taskSendBle(void * pvParameter);
+
 
 static TaskHandle_t m_logger_thread;                 /**< Definition of Logger thread. */
 static void logger_thread(void * arg)
@@ -117,6 +124,7 @@ static void twi_config(void)
 }
 
 void bloodPressureReadCB(ret_code_t result, void * p_user_data) {
+    uint16_t currTime;
     if (result != NRF_SUCCESS)
     {
         NRF_LOG_INFO("FailedRead");
@@ -128,7 +136,8 @@ void bloodPressureReadCB(ret_code_t result, void * p_user_data) {
         NRF_LOG_INFO("BP diastolic pressure %d", bpDevice.diastolic);
         NRF_LOG_INFO("BP systolic pressure %d", bpDevice.systolic);
         NRF_LOG_INFO("BP heart rate %d", bpDevice.heartRate);
-        debugErrorMessage(sendData(&m_hrs, &bpDevice.diastolic, 3));
+        currTime = 10;
+        addToPackage(currTime, &bpDevice.diastolic, 3, &bpDevice.bpPackager);
     }
 }
 
@@ -289,6 +298,7 @@ static void checkReturn(BaseType_t retVal)
 static void bpTask (void * pvParameter)
 {
     UNUSED_PARAMETER(pvParameter);
+    initBP(&bpDevice); //setup the device
     while (true) {
         getMemIndex();
         vTaskDelay(3000);
@@ -310,21 +320,42 @@ int main(void) {
     initNotification();
     pendingMessagesCreate(&globalQ);
     nrf_sdh_freertos_init(bleBegin, &erase_bonds);
- 
 
     /* Configure TWI */
     twi_config();
 
-
     checkReturn(xTaskCreate(bpTask, "x", configMINIMAL_STACK_SIZE+200, NULL, 3, &bpHandle));
+    checkReturn(xTaskCreate(taskSendBle, "x", configMINIMAL_STACK_SIZE+200, NULL, 3, &bleHandle));
+
     
 
     NRF_LOG_INFO("Starting BP Readings!");
     NRF_LOG_FLUSH();
     vTaskStartScheduler();
+}
 
 
-   
+static void taskSendBle (void * pvParameter)
+{
+    UNUSED_PARAMETER(pvParameter);
+
+    char reqData[WAIT_MESSAGE_SIZE];
+    uint16_t * intPtr;
+
+    while (true)
+    {
+        // Wait for Signal
+        pendingMessagesWaitAndPop(reqData, &globalQ);
+
+        // int i = 0;
+        // for(i = 0; i < 10; i++)
+        // {
+        //     intPtr = (uint16_t*)&reqData[i*2];
+        //     NRF_LOG_INFO("%d", *intPtr);
+        // }
+
+        debugErrorMessage(sendData(&m_hrs, (uint8_t*)reqData, sizeof(reqData)));
+    }
 }
 
 

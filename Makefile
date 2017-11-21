@@ -16,6 +16,9 @@ SRC_FILES += \
   $(PROJ_DIR)/lib/notification.c \
   $(PROJ_DIR)/lib/pendingMessages.c \
   $(PROJ_DIR)/lib/ble_rec.c \
+  $(PROJ_DIR)/lib/crc.c \
+  $(PROJ_DIR)/lib/packager.c \
+  $(PROJ_DIR)/lib/bp.c \
   $(SDK_ROOT)/components/toolchain/gcc/gcc_startup_nrf52.S \
   $(SDK_ROOT)/components/toolchain/system_nrf52.c \
   $(SDK_ROOT)/components/boards/boards.c \

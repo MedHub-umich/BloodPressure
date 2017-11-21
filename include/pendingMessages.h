@@ -2,7 +2,7 @@
 #define PENDINGMESSAGES_H
 
 #define QUEUE_SIZE 500
-#define WAIT_MESSAGE_SIZE 20
+#define WAIT_MESSAGE_SIZE 13
 
 
 #include "FreeRTOS.h"
