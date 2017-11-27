@@ -55,7 +55,7 @@
 #include "nrf_log_default_backends.h"
 
 int initBP(bpMonitor* device) {
-	packagerInit(1, 6, &device->bpPackager);
+	packagerInit(BLOOD_PRESSURE_DATA_TYPE, 3, &device->bpPackager);
 	return 1;
 } 
 

@@ -47,7 +47,7 @@ int addToPackage(uint16_t currTime, char* dataIn, size_t length, Packager* currP
 // SOF Byte, Size Byte, Time 2 Bytes, Sequence Byte, Reserved 2 Bytes, Type Byte, Data Bytes, 2 bytes of CRC 
 int createPackage(Packager* currPackager) {
 	uint16_t reservedData = RES_BYTES;
-	uint8_t totalSize = 8 + currPackager->dataLength; //There are 8 header bytes per package (after the size byte)
+	uint8_t totalSize = 6 + currPackager->dataLength; //There are 8 header bytes per package (after the size byte)
 
 	char packagedData[currPackager->dataLength + 10]; //10 extra bytes of header data
 
@@ -65,7 +65,7 @@ int createPackage(Packager* currPackager) {
 
 	memcpy(&packagedData[DATA_LOC], currPackager->data, currPackager->dataLength);
 
-	uint16_t crc = crc16(currPackager->data,  currPackager->dataLength);
+	uint16_t crc = crc16(&packagedData[TIME_LOC],  totalSize);
 
 	NRF_LOG_INFO("The crc is 0x%04X", crc);
 

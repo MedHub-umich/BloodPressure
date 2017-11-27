@@ -16,6 +16,14 @@
 #define TYPE_LOC 7
 #define DATA_LOC 8
 
+//Type defines
+#define BLOOD_PRESSURE_DATA_TYPE 1
+#define ECG_DATA_TYPE 2
+#define HEART_RATE_DATA_TYPE 3
+#define BREATHING_RATE_DATA_TYPE 4
+#define TEMPERATURE_DATA_TYPE 5
+
+
 typedef struct Packager
 {
 	uint8_t type;
