@@ -609,7 +609,7 @@
 // <e> GPIOTE_CONFIG_LOG_ENABLED - Enables logging in the module.
 //==========================================================
 #ifndef GPIOTE_CONFIG_LOG_ENABLED
-#define GPIOTE_CONFIG_LOG_ENABLED 0
+#define GPIOTE_CONFIG_LOG_ENABLED 1
 #endif
 // <o> GPIOTE_CONFIG_LOG_LEVEL  - Default Severity level
  

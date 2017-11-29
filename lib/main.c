@@ -68,6 +68,9 @@
 #include "ble_rec.h"
 #include "packager.h"
 #include "bp.h"
+#include "nrf_drv_gpiote.h"
+#include "app_timer.h"
+#include "app_button.h"
 
 
 
@@ -75,6 +78,8 @@
 #define TWI_INSTANCE_ID             0
 
 #define MAX_PENDING_TRANSACTIONS    5
+
+#define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(50)                     /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
 NRF_TWI_MNGR_DEF(m_nrf_twi_mngr, MAX_PENDING_TRANSACTIONS, TWI_INSTANCE_ID);
 BLE_HRS_DEF(m_hrs);
@@ -101,6 +106,51 @@ static void logger_thread(void * arg)
         vTaskSuspend(NULL); // Suspend myself
     }
 }
+
+
+// Initialize the app timer which is needed for debouncing
+static void timers_init(void)
+{
+    // Initialize timer module, making it use the scheduler
+    ret_code_t err_code = app_timer_init();
+    APP_ERROR_CHECK(err_code);
+}
+
+static void button_event_handler(uint8_t pin_no, uint8_t button_action)
+{
+    ret_code_t err_code;
+
+    switch (pin_no)
+    {
+        case BUTTON_INTERRUPT_PIN:
+            NRF_LOG_INFO("Workds")
+            break;
+
+        default:
+            NRF_LOG_INFO("BROKEN!");
+            break;
+    }
+}
+
+static void buttons_init(void)
+{
+    uint32_t err_code;
+
+    //The array must be static because a pointer to it will be saved in the button handler module.
+    static app_button_cfg_t buttons[] =
+    {
+        {BUTTON_INTERRUPT_PIN, true, BUTTON_PULLDOWN, button_event_handler}
+    };
+
+    err_code = app_button_init(buttons, 1,
+                               BUTTON_DETECTION_DELAY);
+    APP_ERROR_CHECK(err_code);
+    NRF_LOG_INFO("Initialized the button to be on pin 11");
+}
+
+
+
+
 
 void vApplicationIdleHook( void ) {
      vTaskResume(m_logger_thread);
@@ -283,7 +333,7 @@ static void checkReturn(BaseType_t retVal)
 {
     if (retVal == pdPASS)
     {
-        NRF_LOG_INFO("Checkpoint: created task");
+        //NRF_LOG_INFO("Checkpoint: created task");
     }
     else if (retVal == errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY)
     {
@@ -300,8 +350,12 @@ static void bpTask (void * pvParameter)
     UNUSED_PARAMETER(pvParameter);
     initBP(&bpDevice); //setup the device
     while (true) {
-        getMemIndex();
+        // getMemIndex();
         vTaskDelay(3000);
+        NRF_LOG_INFO("Loop");
+
+        //NRF_LOG_INFO("Cool");
+       // NRF_LOG_INFO("GUess what");
     }
 }
 
@@ -312,14 +366,18 @@ int main(void) {
     log_init();
     NRF_LOG_INFO("********** STARTING MAIN *****************");
     NRF_LOG_FLUSH();
-    bool erase_bonds;
+
+
+    bool erase_bonds = false;
     /* Configure board. */
     bsp_board_leds_init();
     bleInit(&m_hrs, &m_rec);
-    buttons_leds_init(&erase_bonds);
+    //buttons_leds_init(&erase_bonds);
     initNotification();
     pendingMessagesCreate(&globalQ);
     nrf_sdh_freertos_init(bleBegin, &erase_bonds);
+    buttons_init();
+    timers_init();
 
     /* Configure TWI */
     twi_config();

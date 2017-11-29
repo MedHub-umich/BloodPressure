@@ -58,7 +58,7 @@ extern "C" {
 #define BP_LOWER_ADDR          (0xA2U >> 1) //Register under 100
 
 
-
+#define BUTTON_INTERRUPT_PIN 11
 
 typedef struct bpMonitor{
 	uint8_t diastolic;

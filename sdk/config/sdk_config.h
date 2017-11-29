@@ -5493,6 +5493,10 @@
 #define NRF_QUEUE_ENABLED 1
 #endif
 
+
+#ifndef BUTTON_ENABLED
+#define BUTTON_ENABLED 1
+#endif
 // </e>
 
 // </h> 

@@ -170,7 +170,7 @@ uint32_t app_button_init(app_button_cfg_t const *       p_buttons,
         err_code = nrf_drv_gpiote_in_init(p_btn->pin_no, &config, gpiote_event_handler);
         VERIFY_SUCCESS(err_code);
     }
-
+    
     // Create polling timer.
     return app_timer_create(&m_detection_delay_timer_id,
                             APP_TIMER_MODE_SINGLE_SHOT,
