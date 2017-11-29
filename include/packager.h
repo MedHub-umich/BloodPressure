@@ -10,11 +10,10 @@
 #define MAX_DATA_LENGTH 247 //1 byte
 #define SOF_LOC 0
 #define SIZE_LOC 1
-#define TIME_LOC 2
-#define SEQ_LOC 4
-#define RESERVED_LOC 5
-#define TYPE_LOC 7
-#define DATA_LOC 8
+#define SEQ_LOC 2
+#define RESERVED_LOC 3
+#define TYPE_LOC 5
+#define DATA_LOC 6
 
 //Type defines
 #define BLOOD_PRESSURE_DATA_TYPE 1
@@ -36,11 +35,11 @@ typedef struct Packager
 
 int createPackage(Packager* currPackager);
 
-int addToPackage(uint16_t currTime, char* dataIn, size_t length, Packager* currPackager);
+int addToPackage(char* dataIn, size_t length, Packager* currPackager);
 
 int packagerInit(uint8_t dataType, uint8_t desiredLength, Packager* currPackager);
 
 //The packager creates a new package with the following ordering: 
-// SOF Byte, Size Byte, Time 2 Bytes, Sequence Byte, Reserved 2 Bytes, Type Byte, Data Bytes, 2 bytes of CRC 
+// SOF Byte, Size Byte, Sequence Byte, Reserved 2 Bytes, Type Byte, Data Bytes, 2 bytes of CRC 
 
 #endif //PACAKGER_H

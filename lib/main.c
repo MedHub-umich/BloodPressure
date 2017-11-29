@@ -119,7 +119,7 @@ void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
     NRF_LOG_INFO("HELLO");
     handled = true;
     sendNotification(TIMER_NOTIFICATION);
-    nrf_delay_ms(50000);
+    //nrf_delay_ms(50000);
     checkForBPReading();
 }
 
@@ -177,8 +177,7 @@ void bloodPressureReadCB(ret_code_t result, void * p_user_data) {
         NRF_LOG_INFO("BP diastolic pressure %d", bpDevice.diastolic);
         NRF_LOG_INFO("BP systolic pressure %d", bpDevice.systolic);
         NRF_LOG_INFO("BP heart rate %d", bpDevice.heartRate);
-        currTime = 10;
-        addToPackage(currTime, &bpDevice.diastolic, 3, &bpDevice.bpPackager);
+        addToPackage(&bpDevice.diastolic, 3, &bpDevice.bpPackager);
     }
 }
 
@@ -253,7 +252,7 @@ void indexCB(ret_code_t result, void * p_user_data) {
         bpDevice.findingIndex = 0; //notify that we are done finding the index in memory of the current BP
         NRF_LOG_INFO("Got the index which is %d", bpDevice.currentMemLocation);
         //logic
-        if (bpDevice.currentMemLocation != bpDevice.lastMemLocation) {
+        if (bpDevice.currentMemLocation == bpDevice.lastMemLocation) {
             bpDevice.lastMemLocation = bpDevice.currentMemLocation;
             getMostRecentBPReading();
         } else {
