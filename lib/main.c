@@ -69,8 +69,6 @@
 #include "packager.h"
 #include "bp.h"
 #include "nrf_drv_gpiote.h"
-#include "app_timer.h"
-#include "app_button.h"
 
 
 
@@ -78,8 +76,6 @@
 #define TWI_INSTANCE_ID             0
 
 #define MAX_PENDING_TRANSACTIONS    5
-
-#define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(9)                     /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
 NRF_TWI_MNGR_DEF(m_nrf_twi_mngr, MAX_PENDING_TRANSACTIONS, TWI_INSTANCE_ID);
 BLE_HRS_DEF(m_hrs);
@@ -94,6 +90,14 @@ static void bpTask(void * pvParameter);
 TaskHandle_t  bleHandle;
 static void taskSendBle(void * pvParameter);
 
+static bool handled = false;
+
+void checkForBPReading();
+void checkNumberOfReadings();
+void indexCB(ret_code_t result, void * p_user_data);
+void lastIndexCB(ret_code_t result, void * p_user_data);
+void setLastIndex();
+
 
 static TaskHandle_t m_logger_thread;                 /**< Definition of Logger thread. */
 static void logger_thread(void * arg)
@@ -107,50 +111,36 @@ static void logger_thread(void * arg)
     }
 }
 
-
-// Initialize the app timer which is needed for debouncing
-static void timers_init(void)
+void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
-    // Initialize timer module, making it use the scheduler
-    ret_code_t err_code = app_timer_init();
-    APP_ERROR_CHECK(err_code);
+    if (handled) {
+        return;
+    }
+    NRF_LOG_INFO("HELLO");
+    handled = true;
+    sendNotification(TIMER_NOTIFICATION);
+    nrf_delay_ms(50000);
+    checkForBPReading();
 }
 
-static void button_event_handler(uint8_t pin_no, uint8_t button_action)
+/**
+ * @brief Function for configuring: PIN_IN pin for input, PIN_OUT pin for output,
+ * and configures GPIOTE to give an interrupt on pin change.
+ */
+static void gpio_init(void)
 {
     ret_code_t err_code;
-    NRF_LOG_INFO("HELLO POPPET");
-    NRF_LOG_FLUSH();
-    switch (pin_no)
-    {
-        case BUTTON_INTERRUPT_PIN:
-            NRF_LOG_INFO("Works")
-            break;
 
-        default:
-            NRF_LOG_INFO("BROKEN!");
-            break;
-    }
-}
+    int retVal;
 
-static void buttons_init(void)
-{
-    uint32_t err_code;
-
-    //The array must be static because a pointer to it will be saved in the button handler module.
-    static app_button_cfg_t buttons[] =
-    {
-        {BUTTON_INTERRUPT_PIN, true, 1, button_event_handler}
-    };
-
-    err_code = app_button_init(buttons, 1,
-                               BUTTON_DETECTION_DELAY);
+    nrf_drv_gpiote_in_config_t in_config = GPIOTE_CONFIG_IN_SENSE_LOTOHI(true);
+    err_code = nrf_drv_gpiote_in_init(BUTTON_INTERRUPT_PIN, &in_config, in_pin_handler);
     APP_ERROR_CHECK(err_code);
-    NRF_LOG_INFO("Initialized the button to be on pin 11");
+
+    nrf_drv_gpiote_in_event_enable(BUTTON_INTERRUPT_PIN, true);
+
+    NRF_LOG_INFO("Initialized Interrupt");
 }
-
-
-
 
 
 void vApplicationIdleHook( void ) {
@@ -262,13 +252,31 @@ void indexCB(ret_code_t result, void * p_user_data) {
         bpDevice.currentMemLocation = memRegAddr[bpDevice.currentMemLocation];
         bpDevice.findingIndex = 0; //notify that we are done finding the index in memory of the current BP
         NRF_LOG_INFO("Got the index which is %d", bpDevice.currentMemLocation);
-        getMostRecentBPReading();
+        //logic
+        if (bpDevice.currentMemLocation != bpDevice.lastMemLocation) {
+            bpDevice.lastMemLocation = bpDevice.currentMemLocation;
+            getMostRecentBPReading();
+        } else {
+            NRF_LOG_INFO("Same data so we not gonna upload");
+        }
+        
+    }
+}
+
+void setLastCB(ret_code_t result, void * p_user_data) {
+    if (result != NRF_SUCCESS)
+    {
+        NRF_LOG_INFO("FailedRead");
+        NRF_LOG_WARNING("read_bp_registers_cb - error: %d", (int)result);
+        return;
+    } else {
+        bpDevice.lastMemLocation = memRegAddr[bpDevice.currentMemLocation];
+        NRF_LOG_INFO("Set the last index which is %d", bpDevice.lastMemLocation);    
     }
 }
 
 
-
-void getMemIndex() {
+void checkForBPReading() {
 
     // [these structures have to be "static" - they cannot be placed on stack
     //  since the transaction is scheduled and these structures most likely
@@ -293,7 +301,36 @@ void getMemIndex() {
     if (err_code == NRF_ERROR_NO_MEM) {
         NRF_LOG_INFO("Error Code %d", err_code);
     }
-} 
+}
+
+void setLastIndex() {
+
+    // [these structures have to be "static" - they cannot be placed on stack
+    //  since the transaction is scheduled and these structures most likely
+    //  will be referred after this function returns]
+    int err_code;
+    NRF_LOG_INFO("I am going to set last index");
+    static nrf_twi_mngr_transfer_t const transfers[] =
+    {
+        NRF_TWI_MNGR_WRITE(BP_UPPER_ADDR, &MEM_INDEX_ADDR, sizeof(MEM_INDEX_ADDR),  0),
+        NRF_TWI_MNGR_READ (BP_UPPER_ADDR, &bpDevice.currentMemLocation, 1, 0),
+        
+    };
+    static nrf_twi_mngr_transaction_t NRF_TWI_MNGR_BUFFER_LOC_IND transaction =
+    {
+        .callback            = setLastCB,
+        .p_user_data         = NULL,
+        .p_transfers         = transfers,
+        .number_of_transfers = sizeof(transfers) / sizeof(transfers[0])
+    };
+
+    err_code = nrf_twi_mngr_schedule(&m_nrf_twi_mngr, &transaction);
+    if (err_code == NRF_ERROR_NO_MEM) {
+        NRF_LOG_INFO("Error Code %d", err_code);
+    }
+}  
+
+
 static void log_init(void)
 {
     ret_code_t err_code = NRF_LOG_INIT(NULL);
@@ -348,20 +385,14 @@ static void checkReturn(BaseType_t retVal)
 
 static void bpTask (void * pvParameter)
 {
-    int retVal;
     UNUSED_PARAMETER(pvParameter);
     initBP(&bpDevice); //setup the device
-    buttons_init();
-    timers_init();
-    retVal = app_button_enable();
-    APP_ERROR_CHECK(retVal);
+    gpio_init();
+    setLastIndex();
     while (true) {
-        // getMemIndex();
-        vTaskDelay(3000);
-        NRF_LOG_INFO("Loop");
-
-        //NRF_LOG_INFO("Cool");
-       // NRF_LOG_INFO("GUess what");
+        waitForNotification(TIMER_NOTIFICATION);
+        vTaskDelay(200);
+        handled = false;
     }
 }
 
@@ -372,13 +403,12 @@ int main(void) {
     log_init();
     NRF_LOG_INFO("********** STARTING MAIN *****************");
     NRF_LOG_FLUSH();
-
-
-    bool erase_bonds = false;
+    NRF_LOG_FLUSH();
+    bool erase_bonds;
     /* Configure board. */
     bsp_board_leds_init();
     bleInit(&m_hrs, &m_rec);
-    //buttons_leds_init(&erase_bonds);
+    buttons_leds_init(&erase_bonds);
     initNotification();
     pendingMessagesCreate(&globalQ);
     nrf_sdh_freertos_init(bleBegin, &erase_bonds);
@@ -408,13 +438,6 @@ static void taskSendBle (void * pvParameter)
     {
         // Wait for Signal
         pendingMessagesWaitAndPop(reqData, &globalQ);
-
-        // int i = 0;
-        // for(i = 0; i < 10; i++)
-        // {
-        //     intPtr = (uint16_t*)&reqData[i*2];
-        //     NRF_LOG_INFO("%d", *intPtr);
-        // }
 
         debugErrorMessage(sendData(&m_hrs, (uint8_t*)reqData, sizeof(reqData)));
     }

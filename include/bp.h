@@ -65,6 +65,7 @@ typedef struct bpMonitor{
 	uint8_t systolic;
 	uint8_t heartRate;
 	uint8_t currentMemLocation;
+	uint8_t lastMemLocation;
 	int findingIndex;
 	int findingBloodPressure;
 	Packager bpPackager;
