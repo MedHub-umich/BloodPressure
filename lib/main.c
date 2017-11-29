@@ -79,7 +79,7 @@
 
 #define MAX_PENDING_TRANSACTIONS    5
 
-#define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(50)                     /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
+#define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(9)                     /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
 
 NRF_TWI_MNGR_DEF(m_nrf_twi_mngr, MAX_PENDING_TRANSACTIONS, TWI_INSTANCE_ID);
 BLE_HRS_DEF(m_hrs);
@@ -119,11 +119,12 @@ static void timers_init(void)
 static void button_event_handler(uint8_t pin_no, uint8_t button_action)
 {
     ret_code_t err_code;
-
+    NRF_LOG_INFO("HELLO POPPET");
+    NRF_LOG_FLUSH();
     switch (pin_no)
     {
         case BUTTON_INTERRUPT_PIN:
-            NRF_LOG_INFO("Workds")
+            NRF_LOG_INFO("Works")
             break;
 
         default:
@@ -139,7 +140,7 @@ static void buttons_init(void)
     //The array must be static because a pointer to it will be saved in the button handler module.
     static app_button_cfg_t buttons[] =
     {
-        {BUTTON_INTERRUPT_PIN, true, BUTTON_PULLDOWN, button_event_handler}
+        {BUTTON_INTERRUPT_PIN, true, 1, button_event_handler}
     };
 
     err_code = app_button_init(buttons, 1,
@@ -347,8 +348,13 @@ static void checkReturn(BaseType_t retVal)
 
 static void bpTask (void * pvParameter)
 {
+    int retVal;
     UNUSED_PARAMETER(pvParameter);
     initBP(&bpDevice); //setup the device
+    buttons_init();
+    timers_init();
+    retVal = app_button_enable();
+    APP_ERROR_CHECK(retVal);
     while (true) {
         // getMemIndex();
         vTaskDelay(3000);
@@ -376,8 +382,6 @@ int main(void) {
     initNotification();
     pendingMessagesCreate(&globalQ);
     nrf_sdh_freertos_init(bleBegin, &erase_bonds);
-    buttons_init();
-    timers_init();
 
     /* Configure TWI */
     twi_config();
