@@ -119,7 +119,7 @@ void in_pin_handler(nrf_drv_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
     NRF_LOG_INFO("HELLO");
     handled = true;
     sendNotification(TIMER_NOTIFICATION);
-    //nrf_delay_ms(50000);
+    nrf_delay_ms(60000);
     checkForBPReading();
 }
 
@@ -251,8 +251,9 @@ void indexCB(ret_code_t result, void * p_user_data) {
         bpDevice.currentMemLocation = memRegAddr[bpDevice.currentMemLocation];
         bpDevice.findingIndex = 0; //notify that we are done finding the index in memory of the current BP
         NRF_LOG_INFO("Got the index which is %d", bpDevice.currentMemLocation);
+        NRF_LOG_INFO("Last index is %d", bpDevice.lastMemLocation);
         //logic
-        if (bpDevice.currentMemLocation == bpDevice.lastMemLocation) {
+        if (bpDevice.currentMemLocation != bpDevice.lastMemLocation) {
             bpDevice.lastMemLocation = bpDevice.currentMemLocation;
             getMostRecentBPReading();
         } else {
